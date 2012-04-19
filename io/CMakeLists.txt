@@ -1,22 +1,27 @@
 # CMake targets for stxxl/io
 
-stxxl_test(benchmark_configured_disks)
-stxxl_test(benchmark_disk_and_flash)
-stxxl_test(benchmark_random_block_access)
-stxxl_test(flushbuffers)
-stxxl_test(gen_file)
-stxxl_test(iobench_scatter_in_place)
-stxxl_test(test_cancel)
-stxxl_test(test_io)
-stxxl_test(test_io_sizes)
-stxxl_test(verify_disks)
+stxxl_build(benchmark_configured_disks)
+stxxl_build(benchmark_disk_and_flash)
+stxxl_build(benchmark_random_block_access)
+stxxl_build(flushbuffers)
+stxxl_build(gen_file)
+stxxl_build(iobench_scatter_in_place)
+stxxl_build(test_cancel)
+stxxl_build(test_io)
+stxxl_build(test_io_sizes)
+stxxl_build(verify_disks)
 
 add_executable(benchmark_disks benchmark_disks.cpp)
 target_link_libraries(benchmark_disks ${STXXL_LIBS})
 
-#TESTS_NON_MSVC		 = sd_test
+if (NOT MSVC)
+  stxxl_build(sd_test)
+endif (NOT MSVC)
 
-stxxl_test(sd_test)
+if (CPPUNIT_FOUND)
 
-#TESTS_UNITTEST		 = unittest
+  add_executable(unittest_io unittest.cpp)
+  target_link_libraries(unittest_io ${STXXL_LIBS} ${CPPUNIT_LIBRARIES})
+  add_test(unittest_io unittest_io)
 
+endif (CPPUNIT_FOUND)

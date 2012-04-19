@@ -1,6 +1,6 @@
 # CMake targets for stxxl/lib
 
-add_library(stxxl
+set(LIBSTXXL_SOURCES
 
   ../common/exithandler.cpp
   ../common/log.cpp
@@ -34,10 +34,20 @@ add_library(stxxl
   
   ../algo/async_schedule.cpp
 
-# LIB_OBJECTS_NON_MSVC =
-  ../io/mmap_file.cpp
-  ../io/simdisk_file.cpp
-  
   )
+
+if (NOT MSVC)
+
+  # additional sources for non Visual Studio builds
+  set(LIBSTXXL_SOURCES ${LIBSTXXL_SOURCES}
+
+    ../io/mmap_file.cpp
+    ../io/simdisk_file.cpp
+
+    )
+
+endif (NOT MSVC)
+
+add_library(stxxl ${LIBSTXXL_SOURCES})
 
 set_target_properties(stxxl PROPERTIES VERSION 1.3.2)

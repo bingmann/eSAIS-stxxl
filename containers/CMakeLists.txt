@@ -21,9 +21,18 @@ stxxl_test(test_vector_sizes)
 stxxl_test(write_vector)
 stxxl_test(write_vector2)
 
-#TESTS_MAP		 = test_map test_map_random
+add_define(test_many_stacks "STXXL_VERBOSE_LEVEL=1")
+add_define(test_ext_merger "STXXL_VERBOSE_LEVEL=1")
+add_define(test_ext_merger2 "STXXL_VERBOSE_LEVEL=1")
+add_define(bench_pqueue "STXXL_VERBOSE_LEVEL=0")
+add_define(benchmark_naive_matrix "STXXL_VERBOSE_LEVEL=0")
+
+# TESTS_MAP
+stxxl_test(test_map)
+stxxl_test(test_map_random)
+
 #TESTS_BDB		 = berkeley_db_benchmark
 #TESTS_LEDASM		 = leda_sm_pq_benchmark leda_sm_stack_benchmark
 #TESTS_TPIE		 = tpie_stack_benchmark
-#TESTS_NON_MSVC		 =
-#TESTS_BTREE		 = test_btree test_const_scan test_corr_insert_erase test_corr_insert_find test_corr_insert_scan
+
+add_subdirectory(btree)

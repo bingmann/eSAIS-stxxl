@@ -276,6 +276,8 @@ int main(int argc, char ** argv)
         ++runs_merger;
     }
     cout << "\nIteration needed: " << i << endl;
+
+    return 0;
 }
 
 // vim: et:ts=4:sw=4
