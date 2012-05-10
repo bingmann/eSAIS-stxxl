@@ -77,7 +77,7 @@ int main()
     unsigned size = MULT * 1024 * 128 / (sizeof(Input::value_type) * 2);
     Input in(size + 1);
     CreateRunsAlg SortedRuns(in, Cmp(), 1024 * 128 * MULT);
-    SortedRunsType Runs = SortedRuns.result();
+    SortedRunsType& Runs = SortedRuns.result();
     assert(stxxl::stream::check_sorted_runs(Runs, Cmp()));
     // merge the runs
     stxxl::stream::runs_merger<SortedRunsType, Cmp> merger(Runs, Cmp(), MULT * 1024 * 128);

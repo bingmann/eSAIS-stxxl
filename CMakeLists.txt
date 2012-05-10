@@ -6,6 +6,8 @@ cmake_minimum_required(VERSION 2.8)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
+include(CheckIncludeFileCXX)
+
 # disallow in-source builds
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
@@ -79,13 +81,21 @@ if(USE_GNU_PARALLEL)
 
   include(FindOpenMP)
 
-  if(OPENMP_FOUND)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_PARALLEL")
+  if(NOT OPENMP_FOUND)
+    message(FATAL_ERROR "OpenMP not found. Try compilation without GNU parallel mode.")
   else()
-    message(FATAL_ERROR "OpenMP not found. Try compilation without them.")
+    check_include_file_cxx(parallel/algorithm HAVE_PARALLEL_ALGORITHM_H) 
+   
+    if (NOT HAVE_PARALLEL_ALGORITHM_H)
+      message(FATAL_ERROR "GNU parallel mode header not found. Try compilation without parallel mode.")
+    else()
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+
+      set(STXXL_PARALLEL_MODE_EXPLICIT "1")
+
+    endif()
   endif()
 
 endif(USE_GNU_PARALLEL)
@@ -138,8 +148,26 @@ endif (NOT CPPUNIT_FOUND)
 ###############################################################################
 # configure environment for building
 
+# copy template headers to build directory
+macro(copy_files GLOBPAT DESTINATION)
+  file(GLOB_RECURSE COPY_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${GLOBPAT})
+  add_custom_target(copy ALL COMMENT "Copying files: ${GLOBPAT}")
+
+  foreach(FILENAME ${COPY_FILES})
+    set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/${FILENAME}")
+    set(DST "${PROJECT_BINARY_DIR}/${FILENAME}")
+
+    add_custom_command(TARGET copy COMMAND ${CMAKE_COMMAND} -E copy ${SRC} ${DST})
+  endforeach(FILENAME)
+endmacro(copy_files)
+
+copy_files(include/* include/)
+
+# create config.h with define switches
+configure_file(${CMAKE_SOURCE_DIR}/include/stxxl/bits/config.h.in ${CMAKE_BINARY_DIR}/include/stxxl/bits/config.h)
+
 # globally adds top-level include directory
-include_directories( "${PROJECT_SOURCE_DIR}/include" )
+include_directories( "${PROJECT_BINARY_DIR}/include" )
 
 # for targets using stxxl library
 set(STXXL_LIBS ${STXXL_LIBS} stxxl ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
@@ -181,19 +209,3 @@ add_subdirectory(io)
 add_subdirectory(mng)
 add_subdirectory(stream)
 add_subdirectory(utils)
-
-# copy template headers to build directory
-
-macro(copy_files GLOBPAT DESTINATION)
-  file(GLOB_RECURSE COPY_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${GLOBPAT})
-  add_custom_target(copy ALL COMMENT "Copying files: ${GLOBPAT}")
-
-  foreach(FILENAME ${COPY_FILES})
-    set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/${FILENAME}")
-    set(DST "${PROJECT_BINARY_DIR}/${FILENAME}")
-
-    add_custom_command(TARGET copy COMMAND ${CMAKE_COMMAND} -E copy ${SRC} ${DST})
-  endforeach(FILENAME)
-endmacro(copy_files)
-
-copy_files(include/* include/)

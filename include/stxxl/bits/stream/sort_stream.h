@@ -129,7 +129,7 @@ namespace stream
         //! \brief Returns the sorted runs object
         //! \return Sorted runs object. The result is computed lazily, i.e. on the first call
         //! \remark Returned object is intended to be used by \c runs_merger object as input
-        const sorted_runs_type & result()
+        sorted_runs_type & result()
         {
             if (!result_computed)
             {
@@ -347,7 +347,11 @@ namespace stream
         typedef basic_runs_creator<Input_, Cmp_, BlockSize_, AllocStr_> base;
 
     public:
+        typedef typename base::cmp_type cmp_type;
+        typedef typename base::value_type value_type;
         typedef typename base::block_type block_type;
+        typedef typename base::sorted_runs_type sorted_runs_type;
+        
 
     private:
         using base::input;
@@ -387,20 +391,18 @@ namespace stream
     //! \tparam AllocStr_ functor that defines allocation strategy for the runs
     template <
         class ValueType_,
-        class Cmp_,
+        class CompareType_,
         unsigned BlockSize_,
         class AllocStr_>
     class runs_creator<
         use_push<ValueType_>,
-        Cmp_,
+        CompareType_,
         BlockSize_,
         AllocStr_>
         : private noncopyable
     {
-        Cmp_ cmp;
-
     public:
-        typedef Cmp_ cmp_type;
+        typedef CompareType_ cmp_type;
         typedef ValueType_ value_type;
         typedef typed_block<BlockSize_, value_type> block_type;
         typedef sort_helper::trigger_entry<block_type> trigger_entry_type;
@@ -408,9 +410,12 @@ namespace stream
         typedef sorted_runs_type result_type;
 
     private:
+        CompareType_ m_cmp;
+
         typedef typename sorted_runs_type::run_type run_type;
         sorted_runs_type result_; // stores the result (sorted runs)
-        unsigned_type m_;         // memory for internal use in blocks
+        const unsigned_type memory_to_use_;
+        const unsigned_type m_;   // memory for internal use in blocks
 
         bool result_computed;     // true after the result() method was called for the first time
 
@@ -429,7 +434,7 @@ namespace stream
                 typename element_iterator_traits<block_type>::element_iterator curr =
                     make_element_iterator(blocks, first_idx);
                 while (first_idx != last_idx) {
-                    *curr = cmp.max_value();
+                    *curr = m_cmp.max_value();
                     ++curr;
                     ++first_idx;
                 }
@@ -441,7 +446,7 @@ namespace stream
             potentially_parallel::
             sort(make_element_iterator(run, 0),
                  make_element_iterator(run, elements),
-                 cmp);
+                 m_cmp);
         }
 
         void compute_result()
@@ -489,38 +494,55 @@ namespace stream
                     write_reqs[i]->wait();
         }
 
-        void cleanup()
-        {
-            delete[] write_reqs;
-            delete[] ((Blocks1 < Blocks2) ? Blocks1 : Blocks2);
-            write_reqs = NULL;
-            Blocks1 = Blocks2 = NULL;
-        }
-
     public:
         //! \brief Creates the object
         //! \param c comparator object
         //! \param memory_to_use memory amount that is allowed to used by the sorter in bytes
-        runs_creator(Cmp_ c, unsigned_type memory_to_use) :
-            cmp(c), m_(memory_to_use / BlockSize_ / sort_memory_usage_factor()), result_computed(false),
+        runs_creator(CompareType_ cmp, unsigned_type memory_to_use) :
+            m_cmp(cmp),
+            memory_to_use_(memory_to_use),
+            m_(memory_to_use / BlockSize_ / sort_memory_usage_factor()),
             m2(m_ / 2),
             el_in_run(m2 * block_type::size),
-            cur_el(0),
-            Blocks1(new block_type[m2 * 2]),
-            Blocks2(Blocks1 + m2),
-            write_reqs(new request_ptr[m2])
+            Blocks1(NULL), Blocks2(NULL),
+            write_reqs(NULL)
         {
-            sort_helper::verify_sentinel_strict_weak_ordering(cmp);
-            if (!(2 * BlockSize_ * sort_memory_usage_factor() <= memory_to_use)) {
+            sort_helper::verify_sentinel_strict_weak_ordering(m_cmp);
+            if (!(2 * BlockSize_ * sort_memory_usage_factor() <= memory_to_use_)) {
                 throw bad_parameter("stxxl::runs_creator<>:runs_creator(): INSUFFICIENT MEMORY provided, please increase parameter 'memory_to_use'");
             }
             assert(m2 > 0);
+
+            Blocks1 = new block_type[m2 * 2];
+            Blocks2 = Blocks1 + m2;
+
+            write_reqs = new request_ptr[m2];
+
+            clear();
         }
 
         ~runs_creator()
         {
-            if (!result_computed)
-                cleanup();
+            delete[] ((Blocks1 < Blocks2) ? Blocks1 : Blocks2);
+            Blocks1 = Blocks2 = NULL;
+
+            delete[] write_reqs;
+            write_reqs = NULL;
+        }
+
+        //! \brief Clear current state and remove all items
+        void clear()
+        {
+            result_.clear();
+
+            result_computed = false;
+            cur_el = 0;
+
+            for (unsigned_type i = 0; i < m2; ++i)
+            {
+                if (write_reqs[i].get())
+                    write_reqs[i]->cancel();
+            }
         }
 
         //! \brief Adds new element to the sorter
@@ -571,7 +593,7 @@ namespace stream
         //! \brief Returns the sorted runs object
         //! \return Sorted runs object.
         //! \remark Returned object is intended to be used by \c runs_merger object as input
-        const sorted_runs_type & result()
+        sorted_runs_type & result()
         {
             if (1)
             {
@@ -579,13 +601,30 @@ namespace stream
                 {
                     compute_result();
                     result_computed = true;
-                    cleanup();
 #ifdef STXXL_PRINT_STAT_AFTER_RF
                     STXXL_MSG(*stats::get_instance());
 #endif //STXXL_PRINT_STAT_AFTER_RF
                 }
             }
             return result_;
+        }
+
+        //! \brief number of items currently inserted.
+        unsigned_type size() const
+        {
+            return result_.size() + cur_el;
+        }
+
+        //! \brief return comparator object
+        const cmp_type& cmp() const
+        {
+            return m_cmp;
+        }
+
+        //! \brief return memory size used (in bytes)
+        unsigned_type memory_used() const
+        {
+            return memory_to_use_;
         }
     };
 
@@ -746,7 +785,7 @@ namespace stream
         //! \brief Returns the sorted runs object
         //! \return Sorted runs object
         //! \remark Returned object is intended to be used by \c runs_merger object as input
-        const sorted_runs_type & result()
+        sorted_runs_type & result()
         {
             finish();
             writer.flush();
@@ -844,7 +883,7 @@ namespace stream
         typedef typename sorted_runs_type::value_type value_type;
 
     private:
-        sorted_runs_type sruns;
+        sorted_runs_type& sruns;
         value_cmp cmp;
         size_type elements_remaining;
 
@@ -883,8 +922,6 @@ namespace stream
                 delete[] prefetch_seq;
                 prefetcher = NULL;
             }
-            // free blocks in runs , (or the user should do it?)
-            sruns.deallocate_blocks();
         }
 
         void fill_current_block()
@@ -961,7 +998,7 @@ namespace stream
         //! \param r input sorted runs object
         //! \param c comparison object
         //! \param memory_to_use amount of memory available for the merger in bytes
-        basic_runs_merger(const sorted_runs_type & r, value_cmp c, unsigned_type memory_to_use) :
+        basic_runs_merger(sorted_runs_type & r, value_cmp c, unsigned_type memory_to_use) :
             sruns(r),
             cmp(c),
             elements_remaining(sruns.elements),
@@ -979,16 +1016,15 @@ namespace stream
             , last_element(cmp.min_value())
 #endif //STXXL_CHECK_ORDER_IN_SORTS
         {
-            initialize(r, memory_to_use);
+            initialize(memory_to_use);
         }
 
     protected:
-        void initialize(const sorted_runs_type & r, unsigned_type memory_to_use)
+        void initialize(unsigned_type memory_to_use)
         {
             sort_helper::verify_sentinel_strict_weak_ordering(cmp);
 
-            sruns = r;
-            elements_remaining = r.elements;
+            elements_remaining = sruns.elements;
 
             if (empty())
                 return;
@@ -1185,6 +1221,12 @@ namespace stream
             deallocate_prefetcher();
             delete current_block;
         }
+
+        //! \brief Standard size method
+        size_type size() const
+        {
+            return elements_remaining;
+        }
     };
 
 
@@ -1324,8 +1366,8 @@ namespace stream
             }
             assert(elements_left == 0);
 
-            nruns = new_nruns;
-            sruns = new_runs;
+            std::swap(nruns, new_nruns);
+            sruns.swap(new_runs);
         }
     }
 
@@ -1341,18 +1383,21 @@ namespace stream
               class AllocStr_ = STXXL_DEFAULT_ALLOC_STRATEGY>
     class runs_merger : public basic_runs_merger<RunsType_, Cmp_, AllocStr_>
     {
-    private:
-        typedef RunsType_ sorted_runs_type;
+    protected:
         typedef basic_runs_merger<RunsType_, Cmp_, AllocStr_> base;
-        typedef typename base::value_cmp value_cmp;
-        typedef typename base::block_type block_type;
+
+    public:
+        typedef RunsType_                       sorted_runs_type;
+        typedef typename base::value_cmp        value_cmp;
+        typedef typename base::value_cmp        cmp_type;
+        typedef typename base::block_type       block_type;
 
     public:
         //! \brief Creates a runs merger object
         //! \param r input sorted runs object
         //! \param c comparison object
         //! \param memory_to_use amount of memory available for the merger in bytes
-        runs_merger(const sorted_runs_type & r, value_cmp c, unsigned_type memory_to_use) :
+        runs_merger(sorted_runs_type & r, value_cmp c, unsigned_type memory_to_use) :
             base(r, c, memory_to_use)
         { }
     };

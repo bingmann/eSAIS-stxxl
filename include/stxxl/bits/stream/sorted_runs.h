@@ -34,7 +34,7 @@ namespace stream
 
     //! \brief All sorted runs of a sort operation.
     template <typename TriggerEntryType>
-    struct sorted_runs
+    struct sorted_runs : private noncopyable
     {
         typedef TriggerEntryType trigger_entry_type;
         typedef typename trigger_entry_type::block_type block_type;
@@ -43,6 +43,7 @@ namespace stream
         typedef std::vector<value_type> small_run_type;
         typedef stxxl::external_size_type size_type;
         typedef typename std::vector<run_type>::size_type run_index_type;
+        typedef sorted_runs<TriggerEntryType> self_type;
 
         size_type elements;
         std::vector<run_type> runs;
@@ -56,6 +57,11 @@ namespace stream
         small_run_type small_;
 
         sorted_runs() : elements(0) { }
+
+        ~sorted_runs()
+        {
+            deallocate_blocks();
+        }
 
         const small_run_type & small_run() const
         {
@@ -79,6 +85,24 @@ namespace stream
         size_type size() const
         {
             return elements;
+        }
+
+        // reset object
+        void clear()
+        {
+            deallocate_blocks();
+            elements = 0;
+            runs_sizes.clear();
+            small_.clear();
+        }
+
+        // swap runs with other object
+        void swap(self_type& b)
+        {
+            std::swap(elements, b.elements);
+            std::swap(runs, b.runs);
+            std::swap(runs_sizes, b.runs_sizes);
+            std::swap(small_, b.small_);
         }
     };
 

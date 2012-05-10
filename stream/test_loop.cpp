@@ -246,7 +246,7 @@ int main(int argc, char ** argv)
 
     runs_creator_type0 runs_creator(input_stream, cmp(), memory_to_use);
 
-    sorted_runs_type sorted_runs = runs_creator.result();
+    sorted_runs_type& sorted_runs = runs_creator.result();
 
     stxxl::uint64 counter = 0;
     int i;
@@ -266,7 +266,7 @@ int main(int argc, char ** argv)
 
         runs_creator_type1 runs_creator(shuffled_stream, cmp(), memory_to_use);
 
-        sorted_runs = runs_creator.result();
+        sorted_runs.swap( runs_creator.result() );
     }
 
     runs_merger_type runs_merger(sorted_runs, cmp(), memory_to_use);

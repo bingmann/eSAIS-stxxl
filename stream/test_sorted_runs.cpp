@@ -80,7 +80,7 @@ int main()
     }
 
 
-    SortedRunsType Runs = SortedRuns.result();          // get sorted_runs data structure
+    SortedRunsType& Runs = SortedRuns.result();          // get sorted_runs data structure
     assert(check_sorted_runs(Runs, Cmp()));
     // merge the runs
     stxxl::stream::runs_merger<SortedRunsType, Cmp> merger(Runs, Cmp(), 10 * megabyte);

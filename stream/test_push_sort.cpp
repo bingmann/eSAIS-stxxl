@@ -67,7 +67,7 @@ int main()
         SortedRuns.push(element);               // push into the sorter
     }
 
-    SortedRunsType Runs = SortedRuns.result();  // get sorted_runs data structure
+    SortedRunsType& Runs = SortedRuns.result();  // get sorted_runs data structure
     assert(stxxl::stream::check_sorted_runs(Runs, Cmp()));
 
     // merge the runs
