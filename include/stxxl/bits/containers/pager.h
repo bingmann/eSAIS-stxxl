@@ -50,6 +50,7 @@ public:
     {
         assert(ipage < int_type(npages_));
         assert(ipage >= 0);
+        STXXL_UNUSED(ipage);
     }
 };
 

@@ -118,7 +118,7 @@ public:
             m_runs_merger = NULL;
         }
 
-        m_runs_creator.clear();
+        m_runs_creator.allocate();
         m_state = STATE_INPUT;
     }
 
@@ -140,6 +140,16 @@ public:
 
     //! Switch to output state.
     void sort()
+    {
+        assert( m_state == STATE_INPUT );
+
+        m_runs_creator.deallocate();
+        m_runs_merger = new runs_merger_type(m_runs_creator.result(), m_runs_creator.cmp(), m_runs_creator.memory_used());
+        m_state = STATE_OUTPUT;
+    }
+
+    //! Switch to output state.
+    void sort_reuse()
     {
         assert( m_state == STATE_INPUT );
 

@@ -33,7 +33,7 @@ namespace stream
     ////////////////////////////////////////////////////////////////////////
 
     //! \brief All sorted runs of a sort operation.
-    template <typename TriggerEntryType>
+    template <typename TriggerEntryType, typename CompareType_>
     struct sorted_runs : private noncopyable
     {
         typedef TriggerEntryType trigger_entry_type;
@@ -43,7 +43,8 @@ namespace stream
         typedef std::vector<value_type> small_run_type;
         typedef stxxl::external_size_type size_type;
         typedef typename std::vector<run_type>::size_type run_index_type;
-        typedef sorted_runs<TriggerEntryType> self_type;
+
+        typedef CompareType_    cmp_type;
 
         size_type elements;
         std::vector<run_type> runs;
@@ -56,11 +57,24 @@ namespace stream
         // and kept in the array "small"
         small_run_type small_;
 
-        sorted_runs() : elements(0) { }
+        size_type       refs_;
+
+        sorted_runs() : elements(0), refs_(0) { }
 
         ~sorted_runs()
         {
             deallocate_blocks();
+        }
+        
+        void inc_ref()
+        {
+            ++refs_;
+        }
+
+        void dec_ref()
+        {
+            if (--refs_ == 0)
+                delete this;
         }
 
         const small_run_type & small_run() const
@@ -68,6 +82,13 @@ namespace stream
             return small_;
         }
 
+        // returns number of elements in all runs together
+        size_type size() const
+        {
+            return elements;
+        }
+
+    private:
         //! \brief Deallocates the blocks which the runs occupy
         //!
         //! \remark Usually there is no need in calling this method,
@@ -79,30 +100,6 @@ namespace stream
                 bm->delete_blocks(make_bid_iterator(runs[i].begin()), make_bid_iterator(runs[i].end()));
 
             runs.clear();
-        }
-
-        // returns number of elements in all runs together
-        size_type size() const
-        {
-            return elements;
-        }
-
-        // reset object
-        void clear()
-        {
-            deallocate_blocks();
-            elements = 0;
-            runs_sizes.clear();
-            small_.clear();
-        }
-
-        // swap runs with other object
-        void swap(self_type& b)
-        {
-            std::swap(elements, b.elements);
-            std::swap(runs, b.runs);
-            std::swap(runs_sizes, b.runs_sizes);
-            std::swap(small_, b.small_);
         }
     };
 
