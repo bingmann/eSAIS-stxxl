@@ -55,7 +55,7 @@ int main()
     unsigned input_size = (50 * megabyte / sizeof(value_type));
 
     Cmp c;
-    CreateRunsAlg SortedRuns(c, 10 * megabyte);
+    CreateRunsAlg SortedRuns(c, 1 * megabyte / 64);
     value_type checksum_before(0);
 
     stxxl::random_number32 rnd;
@@ -71,7 +71,7 @@ int main()
     assert(stxxl::stream::check_sorted_runs(Runs, Cmp()));
 
     // merge the runs
-    stxxl::stream::runs_merger<SortedRunsType, Cmp> merger(Runs, Cmp(), 10 * megabyte);
+    stxxl::stream::runs_merger<SortedRunsType, Cmp> merger(Runs, Cmp(), 1 * megabyte);
     stxxl::vector<value_type, 4, stxxl::lru_pager<8>, block_size, STXXL_DEFAULT_ALLOC_STRATEGY> array;
     STXXL_MSG(input_size << " " << Runs->elements);
     STXXL_MSG("checksum before: " << checksum_before);

@@ -12,21 +12,21 @@ add_define(test_sort "STXXL_VERBOSE_LEVEL=0")
 add_define(test_bad_cmp "STXXL_VERBOSE_LEVEL=0")
 add_define(test_random_shuffle "STXXL_VERBOSE_LEVEL=0")
 
-stxxl_build(test_asch)
-stxxl_build(sort_file)
-stxxl_build(copy_and_sort_file)
+stxxl_extra(test_asch)
+stxxl_extra(sort_file)
+stxxl_extra(copy_and_sort_file)
 
 #TESTS_LONG_COMPILE	 = test_sort_all_parameters test_ksort_all_parameters test_stable_ksort_all_parameters
 
-stxxl_build(test_sort_all_parameters)
-stxxl_build(test_ksort_all_parameters)
-stxxl_build(test_stable_ksort_all_parameters)
+stxxl_extra(test_sort_all_parameters)
+stxxl_extra(test_ksort_all_parameters)
+stxxl_extra(test_stable_ksort_all_parameters)
 
 add_define(test_ksort_all_parameters "STXXL_VERBOSE_STABLE_KSORT=STXXL_VERBOSE0" "STXXL_VERBOSE_LEVEL=0" "STXXL_CHECK_ORDER_IN_SORTS")
 
 #TESTS_NON_MSVC		 = test_parallel_sort
 
-stxxl_build(test_parallel_sort)
+#stxxl_extra(test_parallel_sort)
 
 # Left-overs from GNUmakefile
 

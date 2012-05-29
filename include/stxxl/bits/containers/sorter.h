@@ -87,36 +87,22 @@ protected:
     runs_creator_type   m_runs_creator;
 
     // runs merger reading items when in STATE_OUTPUT
-    runs_merger_type*   m_runs_merger;
+    runs_merger_type    m_runs_merger;
 
 public:
 
     sorter(const cmp_type& cmp, unsigned_type memory_to_use)
         : m_state(STATE_INPUT), 
           m_runs_creator(cmp, memory_to_use),
-          m_runs_merger(NULL)
+          m_runs_merger(cmp, memory_to_use)
     {
-    }
-
-    ~sorter()
-    {
-        if ( m_state == STATE_OUTPUT )
-        {
-            assert( m_runs_merger );
-            delete m_runs_merger;
-            m_runs_merger = NULL;
-        }
     }
 
     //! Remove all items and return to input state.
     void clear()
     {
         if ( m_state == STATE_OUTPUT )
-        {
-            assert( m_runs_merger );
-            delete m_runs_merger;
-            m_runs_merger = NULL;
-        }
+            m_runs_merger.deallocate();
 
         m_runs_creator.allocate();
         m_state = STATE_INPUT;
@@ -135,7 +121,7 @@ public:
         if ( m_state == STATE_INPUT )
             return m_runs_creator.size();
         else
-            return m_runs_merger->size();
+            return m_runs_merger.size();
     }
 
     //! Switch to output state.
@@ -144,7 +130,7 @@ public:
         assert( m_state == STATE_INPUT );
 
         m_runs_creator.deallocate();
-        m_runs_merger = new runs_merger_type(m_runs_creator.result(), m_runs_creator.cmp(), m_runs_creator.memory_used());
+        m_runs_merger.initialize(m_runs_creator.result());
         m_state = STATE_OUTPUT;
     }
 
@@ -153,7 +139,7 @@ public:
     {
         assert( m_state == STATE_INPUT );
 
-        m_runs_merger = new runs_merger_type(m_runs_creator.result(), m_runs_creator.cmp(), m_runs_creator.memory_used());
+        m_runs_merger.initialize(m_runs_creator.result());
         m_state = STATE_OUTPUT;
     }
 
@@ -162,8 +148,7 @@ public:
     {
         assert( m_state == STATE_OUTPUT );
 
-        assert( m_runs_merger );
-        delete m_runs_merger;
+        m_runs_merger.deallocate();
 
         m_state = STATE_INPUT;
         return sort();
@@ -173,16 +158,14 @@ public:
     bool empty() const
     {
         assert( m_state == STATE_OUTPUT );
-        assert( m_runs_merger );
-        return m_runs_merger->empty();
+        return m_runs_merger.empty();
     }
 
     //! \brief Standard stream method
     const value_type& operator * () const
     {
         assert( m_state == STATE_OUTPUT );
-        assert( m_runs_merger );
-        return *(*m_runs_merger);
+        return *m_runs_merger;
     }
 
     //! \brief Standard stream method
@@ -195,8 +178,7 @@ public:
     sorter& operator ++ ()
     {
         assert( m_state == STATE_OUTPUT );
-        assert( m_runs_merger );
-        ++(*m_runs_merger);
+        ++m_runs_merger;
         return *this;
     }
 };

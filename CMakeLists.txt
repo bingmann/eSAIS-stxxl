@@ -17,6 +17,8 @@ endif("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 ###############################################################################
 # compilation options 
 
+option(BUILD_TESTS "Build all stxxl test programs" OFF)
+
 option(USE_BOOST "Use Boost libraries for threads,config,filesystem,random and date_time" OFF)
 
 option(USE_GNU_PARALLEL "Use GNU parallel STL extensions" OFF)
@@ -148,26 +150,11 @@ endif (NOT CPPUNIT_FOUND)
 ###############################################################################
 # configure environment for building
 
-# copy template headers to build directory
-macro(copy_files GLOBPAT DESTINATION)
-  file(GLOB_RECURSE COPY_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${GLOBPAT})
-  add_custom_target(copy ALL COMMENT "Copying files: ${GLOBPAT}")
-
-  foreach(FILENAME ${COPY_FILES})
-    set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/${FILENAME}")
-    set(DST "${PROJECT_BINARY_DIR}/${FILENAME}")
-
-    add_custom_command(TARGET copy COMMAND ${CMAKE_COMMAND} -E copy ${SRC} ${DST})
-  endforeach(FILENAME)
-endmacro(copy_files)
-
-copy_files(include/* include/)
-
 # create config.h with define switches
-configure_file(${CMAKE_SOURCE_DIR}/include/stxxl/bits/config.h.in ${CMAKE_BINARY_DIR}/include/stxxl/bits/config.h)
+configure_file(${PROJECT_SOURCE_DIR}/include/stxxl/bits/config.h.in ${PROJECT_BINARY_DIR}/include/stxxl/bits/config.h)
 
-# globally adds top-level include directory
-include_directories( "${PROJECT_BINARY_DIR}/include" )
+# globally adds top-level include directories
+include_directories( "${PROJECT_SOURCE_DIR}/include" "${PROJECT_BINARY_DIR}/include" )
 
 # for targets using stxxl library
 set(STXXL_LIBS ${STXXL_LIBS} stxxl ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
@@ -177,7 +164,7 @@ add_subdirectory(lib)
 
 # macro for building stxxl programs
 
-macro (stxxl_build PROGNAME)
+macro(stxxl_build PROGNAME)
 
   add_executable(${PROGNAME} ${PROGNAME}.cpp)
   target_link_libraries(${PROGNAME} ${STXXL_LIBS})
@@ -186,18 +173,34 @@ endmacro (stxxl_build)
 
 # macro for building stxxl tests
 
-macro (stxxl_test TESTNAME)
+macro(stxxl_test TESTNAME)
 
-  stxxl_build(${TESTNAME})
-  add_test(${TESTNAME} ${TESTNAME})
+  if(BUILD_TESTS)
+    stxxl_build(${TESTNAME})
+    add_test(${TESTNAME} ${TESTNAME})
+  endif(BUILD_TESTS)
 
 endmacro (stxxl_test)
+
+# macro for building extra stxxl tests
+
+macro(stxxl_extra TESTNAME)
+
+  if(BUILD_TESTS)
+    stxxl_build(${TESTNAME})
+  endif(BUILD_TESTS)
+
+endmacro (stxxl_extra)
 
 # macro for setting additional defines for targets
 
 macro (add_define PROGNAME)
 
-  set_property(TARGET ${PROGNAME} APPEND PROPERTY COMPILE_DEFINITIONS ${ARGN})
+  if(TARGET ${PROGNAME})
+    set_property(TARGET ${PROGNAME} APPEND PROPERTY COMPILE_DEFINITIONS ${ARGN})
+  else()
+    #message("Ignoring add_define(${PROGNAME} ${ARGN})")
+  endif()
 
 endmacro (add_define TESTNAME)
 

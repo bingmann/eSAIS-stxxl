@@ -46,60 +46,89 @@ namespace stream
 
         typedef CompareType_    cmp_type;
 
+        /// total number of elements in all runs
         size_type elements;
+
+        /// vector of runs (containing vectors of block ids)
         std::vector<run_type> runs;
+
+        /// vector of the number of elements in each individual run
         std::vector<size_type> runs_sizes;
 
-        // Optimization:
-        // if the input is small such that its total size is
-        // at most B (block_type::size)
-        // then input is sorted internally
-        // and kept in the array "small"
-        small_run_type small_;
+        //! \brief Small sort optimization:
+        // if the input is small such that its total size is at most B
+        // (block_type::size) then input is sorted internally and kept in the
+        // array "small_run"
+        small_run_type  small_run;
 
-        size_type       refs_;
+        /// reference counter used by counting_ptr<>
+        size_type       refs;
 
-        sorted_runs() : elements(0), refs_(0) { }
+    public:
+        sorted_runs()
+            : elements(0), refs(0)
+        { }
 
         ~sorted_runs()
         {
             deallocate_blocks();
         }
         
+        /// Increment internal reference counter
         void inc_ref()
         {
-            ++refs_;
+            ++refs;
         }
 
+        /// Decrement internal reference counter. If it hits zero, the object is freed.
         void dec_ref()
         {
-            if (--refs_ == 0)
-                delete this;
+            if (--refs == 0) delete this;
         }
 
-        const small_run_type & small_run() const
+        /// Clear the internal state of the object: release all runs and reset.
+        void clear()
         {
-            return small_;
+            deallocate_blocks();
+
+            elements = 0;
+            runs.clear();
+            runs_sizes.clear();
+            small_run.clear();
         }
 
-        // returns number of elements in all runs together
-        size_type size() const
+        /// Add a new run with given number of elements
+        void add_run(const run_type& run, size_type run_size)
         {
-            return elements;
+            runs.push_back(run);
+            runs_sizes.push_back(run_size);
+            elements += run_size;
+        }
+
+        /// Swap contents with another object. This is used by the recursive
+        /// merger to swap in a sorted_runs object with fewer runs.
+        void swap(sorted_runs& b)
+        {
+            std::swap(elements, b.elements);
+            std::swap(runs, b.runs);
+            std::swap(runs_sizes, b.runs_sizes);
+            std::swap(small_run, b.small_run);
         }
 
     private:
         //! \brief Deallocates the blocks which the runs occupy
         //!
-        //! \remark Usually there is no need in calling this method,
-        //! since the \c runs_merger calls it when it is being destructed
+        //! \remark There is no need in calling this method, the blocks are
+        //! deallocated by the destructor. However, if you wish to reuse the
+        //! object, then this function can be used to clear its state.
         void deallocate_blocks()
         {
             block_manager * bm = block_manager::get_instance();
             for (unsigned_type i = 0; i < runs.size(); ++i)
-                bm->delete_blocks(make_bid_iterator(runs[i].begin()), make_bid_iterator(runs[i].end()));
-
-            runs.clear();
+            {
+                bm->delete_blocks(make_bid_iterator(runs[i].begin()),
+                                  make_bid_iterator(runs[i].end()));
+            }
         }
     };
 
