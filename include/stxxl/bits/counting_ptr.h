@@ -43,20 +43,20 @@ private:
 public:
 
     /// default constructor: contains a NULL pointer.
-    counting_ptr() : m_ptr(0)
+    counting_ptr() : m_ptr(NULL)
     {
     }
     
     /// constructor with pointer: initializes reference to ptr.
     counting_ptr(Type* ptr) : m_ptr(ptr)
     {
-        m_ptr->inc_ref();
+        if (m_ptr) m_ptr->inc_ref();
     }
 
     /// destructor: decrements reference counter in ptr.
     ~counting_ptr()
     {
-        m_ptr->dec_ref();
+        if (m_ptr) m_ptr->dec_ref();
     }
 
     /// assignment operator: dereference current object and acquire reference on new one.
@@ -92,15 +92,21 @@ public:
     /// return the enclosed object as reference.
     Type& operator*() const
     {
-        assert( m_ptr != 0 );
+        assert( m_ptr != NULL );
         return *m_ptr;
     }
 
     /// return the enclosed pointer.
     Type* operator->() const
     {
-        assert( m_ptr != 0 );
+        assert( m_ptr != NULL );
         return m_ptr;
+    }
+
+    /// return true if the pointer is the NULL pointer
+    bool operator!() const
+    {
+        return (m_ptr == NULL);
     }
 
     /// swap enclosed object with another counting pointer (no reference counts need change)

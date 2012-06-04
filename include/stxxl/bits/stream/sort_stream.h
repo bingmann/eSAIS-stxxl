@@ -553,10 +553,10 @@ namespace stream
         //! \brief Clear current state and remove all items
         void clear()
         {
-            if (m_result.get() != NULL)
-                m_result->clear();
-            else
+            if (!m_result)
                 m_result = new sorted_runs_data_type;
+            else
+                m_result->clear();
 
             m_result_computed = false;
             m_cur_el = 0;
@@ -947,7 +947,7 @@ namespace stream
         size_type       m_elements_remaining;
 
         /// memory buffer for merging from external streams
-        out_block_type  m_buffer_block;
+        out_block_type*  m_buffer_block;
 
         /// pointer into current memory buffer: this is either m_buffer_block or the small_runs vector
         const value_type* m_current_ptr;
@@ -1026,7 +1026,7 @@ namespace stream
 
                     STXXL_VERBOSE1("before merge " << output_size);
 
-                    stxxl::parallel::multiway_merge((*seqs).begin(), (*seqs).end(), m_buffer_block.end() - rest, cmp, output_size);
+                    stxxl::parallel::multiway_merge((*seqs).begin(), (*seqs).end(), m_buffer_block->end() - rest, cmp, output_size);
                     // sequence iterators are progressed appropriately
 
                     rest -= output_size;
@@ -1038,12 +1038,12 @@ namespace stream
                 } while (rest > 0 && (*seqs).size() > 0);
 
 #if STXXL_CHECK_ORDER_IN_SORTS
-                if (!stxxl::is_sorted(m_buffer_block.begin(), m_buffer_block.end(), cmp))
+                if (!stxxl::is_sorted(m_buffer_block->begin(), m_buffer_block->end(), cmp))
                 {
-                    for (value_type * i = m_buffer_block.begin() + 1; i != m_buffer_block.end(); ++i)
+                    for (value_type * i = m_buffer_block->begin() + 1; i != m_buffer_block->end(); ++i)
                         if (cmp(*i, *(i - 1)))
                         {
-                            STXXL_VERBOSE1("Error at position " << (i - m_buffer_block.begin()));
+                            STXXL_VERBOSE1("Error at position " << (i - m_buffer_block->begin()));
                         }
                     assert(false);
                 }
@@ -1057,13 +1057,13 @@ namespace stream
             else
             {
 // begin of native merging procedure
-                m_losers->multi_merge(m_buffer_block.elem, m_buffer_block.elem + STXXL_MIN<size_type>(out_block_type::size, m_elements_remaining));
+                m_losers->multi_merge(m_buffer_block->elem, m_buffer_block->elem + STXXL_MIN<size_type>(out_block_type::size, m_elements_remaining));
 // end of native merging procedure
             }
             STXXL_VERBOSE1("current block filled");
 
-            m_current_ptr = m_buffer_block.elem;
-            m_current_end = m_buffer_block.elem + STXXL_MIN<size_type>(out_block_type::size, m_elements_remaining);
+            m_current_ptr = m_buffer_block->elem;
+            m_current_end = m_buffer_block->elem + STXXL_MIN<size_type>(out_block_type::size, m_elements_remaining);
 
             if (m_elements_remaining <= out_block_type::size)
                 deallocate_prefetcher();
@@ -1076,6 +1076,7 @@ namespace stream
         basic_runs_merger(value_cmp c, unsigned_type memory_to_use)
             : m_cmp(c),
               m_memory_to_use(memory_to_use),
+              m_buffer_block(new out_block_type),
               m_prefetch_seq(NULL),
               m_prefetcher(NULL),
               m_losers(NULL)
@@ -1270,7 +1271,7 @@ namespace stream
                 fill_buffer_block();
 
 #if STXXL_CHECK_ORDER_IN_SORTS
-                assert(stxxl::is_sorted(m_buffer_block.elem, m_buffer_block.elem + STXXL_MIN<size_type>(m_elements_remaining, m_buffer_block.size), m_cmp));
+                assert(stxxl::is_sorted(m_buffer_block->elem, m_buffer_block->elem + STXXL_MIN<size_type>(m_elements_remaining, m_buffer_block->size), m_cmp));
 #endif //STXXL_CHECK_ORDER_IN_SORTS
             }
 
@@ -1290,6 +1291,8 @@ namespace stream
         virtual ~basic_runs_merger()
         {
             deallocate_prefetcher();
+
+            delete m_buffer_block;
         }
     };
 
