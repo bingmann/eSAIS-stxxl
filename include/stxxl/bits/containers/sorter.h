@@ -70,7 +70,8 @@ public:
     // *** Constructed Types
 
     /// runs creator type with push() method
-    typedef stream::runs_creator< stream::use_push<ValueType>, cmp_type, block_size, alloc_strategy_type > runs_creator_type;
+    typedef stream::runs_creator< stream::use_push<ValueType>, cmp_type,
+                                  block_size, alloc_strategy_type > runs_creator_type;
 
     /// corresponding runs merger type
     typedef stream::runs_merger< typename runs_creator_type::sorted_runs_type,
@@ -124,10 +125,13 @@ public:
             return m_runs_merger.size();
     }
 
-    //! Switch to output state.
+    //! Switch to output state, rewind() in case the output was already sorted.
     void sort()
     {
-        assert( m_state == STATE_INPUT );
+        if (m_state == STATE_OUTPUT)
+        {
+            m_runs_merger.deallocate();
+        }
 
         m_runs_creator.deallocate();
         m_runs_merger.initialize(m_runs_creator.result());
