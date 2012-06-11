@@ -11,7 +11,7 @@
  *  http://www.boost.org/LICENSE_1_0.txt)
  **************************************************************************/
 
-//! \example container/test_sorter.cpp
+//! \example containers/test_sorter.cpp
 //! This is an example of how to use \c stxxl::sorter() container
 
 #include <limits>

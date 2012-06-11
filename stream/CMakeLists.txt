@@ -8,6 +8,8 @@ stxxl_test(test_sorted_runs)
 stxxl_test(test_stream)
 stxxl_test(test_stream1)
 
+stxxl_build(test_intro1)
+
 add_define(test_stream1 "STXXL_VERBOSE_LEVEL=1")
 add_define(test_push_sort "STXXL_VERBOSE_LEVEL=0")
 add_define(test_stream "STXXL_VERBOSE_LEVEL=1")
