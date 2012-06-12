@@ -1018,7 +1018,7 @@ namespace stream
                         else
                         {
                             num_currently_mergeable = sort_helper::count_elements_less_equal(
-                                *seqs, m_consume_seq[m_prefetcher->pos()].value, cmp);
+                                *seqs, m_consume_seq[m_prefetcher->pos()].value, m_cmp);
                         }
                     }
 
@@ -1026,7 +1026,7 @@ namespace stream
 
                     STXXL_VERBOSE1("before merge " << output_size);
 
-                    stxxl::parallel::multiway_merge((*seqs).begin(), (*seqs).end(), m_buffer_block->end() - rest, cmp, output_size);
+                    stxxl::parallel::multiway_merge((*seqs).begin(), (*seqs).end(), m_buffer_block->end() - rest, m_cmp, output_size);
                     // sequence iterators are progressed appropriately
 
                     rest -= output_size;

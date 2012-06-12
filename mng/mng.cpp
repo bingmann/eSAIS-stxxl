@@ -33,10 +33,14 @@ block_manager::block_manager()
                                     i);         // allocator_id
         disk_allocators[i] = new DiskAllocator(disk_files[i], cfg->disk_size(i));
     }
+
+    m_totalalloc = m_maxalloc = 0;
 }
 
 block_manager::~block_manager()
 {
+    std::cout << "Block Manager: current alloc " << m_totalalloc << " maximum allocation " << m_maxalloc << "\n";
+
     STXXL_VERBOSE1("Block manager destructor");
     for (unsigned i = ndisks; i > 0; )
     {
