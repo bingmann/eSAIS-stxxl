@@ -839,7 +839,7 @@ stxxl::vector<int> intvector;
 // (fill intvector)
 
 // define stream class iterating over an integer STXXL vector
-typedef stxxl::stream::iterator2stream< stxxl::vector<int>::const_iterator > intstream_type;
+typedef stxxl::stream::vector_iterator2stream< stxxl::vector<int>::const_iterator > intstream_type;
 
 // instantiate the stream object, iterate from begin to end of intvector using prefetching
 intstream_type intstream (intvector.begin(), intvector.end());
