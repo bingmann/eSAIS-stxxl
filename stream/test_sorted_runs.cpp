@@ -80,12 +80,12 @@ int main()
     }
 
 
-    SortedRunsType Runs = SortedRuns.result();          // get sorted_runs data structure
+    SortedRunsType& Runs = SortedRuns.result();          // get sorted_runs data structure
     assert(check_sorted_runs(Runs, Cmp()));
     // merge the runs
     stxxl::stream::runs_merger<SortedRunsType, Cmp> merger(Runs, Cmp(), 10 * megabyte);
     stxxl::vector<value_type, 4, stxxl::lru_pager<8>, block_size, STXXL_DEFAULT_ALLOC_STRATEGY> array;
-    STXXL_MSG(input_size << " " << Runs.elements);
+    STXXL_MSG(input_size << " " << Runs->elements);
     STXXL_MSG("checksum before: " << checksum_before);
     value_type checksum_after(0);
     for (unsigned i = 0; i < input_size; ++i)

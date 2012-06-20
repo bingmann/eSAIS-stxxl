@@ -66,6 +66,8 @@ class block_manager : public singleton<block_manager>
     unsigned ndisks;
     block_manager();
 
+    unsigned long long  m_totalalloc, m_maxalloc;
+
 protected:
     template <class BIDType, class DiskAssignFunctor, class BIDIteratorClass>
     void new_blocks_int(
@@ -147,6 +149,11 @@ public:
     void delete_block(const BID<BLK_SIZE> & bid);
 
     ~block_manager();
+
+    unsigned long long max_allocated() const
+    {
+        return m_maxalloc;
+    }
 };
 
 
@@ -183,6 +190,9 @@ void block_manager::new_blocks_int(
         }
     }
 
+    m_totalalloc += nblocks * BIDType::size;
+    m_maxalloc = std::max(m_maxalloc, m_totalalloc);
+
     memset(bl, 0, ndisks * sizeof(int_type));
 
     OutputIterator it = out;
@@ -203,6 +213,8 @@ void block_manager::new_blocks_int(
 template <unsigned BLK_SIZE>
 void block_manager::delete_block(const BID<BLK_SIZE> & bid)
 {
+    m_totalalloc -= BLK_SIZE;
+
     // do not uncomment it
     //assert(bid.storage->get_allocator_id() < config::get_instance()->disks_number());
     if (!bid.is_managed())
