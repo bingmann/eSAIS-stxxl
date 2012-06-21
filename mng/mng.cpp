@@ -39,7 +39,7 @@ block_manager::block_manager()
 
 block_manager::~block_manager()
 {
-    std::cout << "Block Manager: current alloc " << m_totalalloc << " maximum allocation " << m_maxalloc << "\n";
+    STXXL_VERBOSE1("Block manager: current alloc " << m_totalalloc << " maximum allocation " << m_maxalloc);
 
     STXXL_VERBOSE1("Block manager destructor");
     for (unsigned i = ndisks; i > 0; )

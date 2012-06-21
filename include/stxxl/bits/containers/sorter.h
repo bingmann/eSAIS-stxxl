@@ -115,6 +115,17 @@ public:
         assert( m_state == STATE_INPUT );
         m_runs_creator.push(val);
     }
+    
+    //! Finish push state and deallocate buffer.
+    void finish()
+    {
+        if (m_state == STATE_OUTPUT)
+        {
+            m_runs_merger.deallocate();
+        }
+
+        m_runs_creator.deallocate();
+    }
 
     //! Number of items pushed or items remaining to be read.
     unsigned_type size() const

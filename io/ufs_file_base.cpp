@@ -187,5 +187,10 @@ void ufs_file_base::remove()
     ::remove(filename.c_str());
 }
 
+void ufs_file_base::unlink()
+{
+    ::remove(filename.c_str());
+}
+
 __STXXL_END_NAMESPACE
 // vim: et:ts=4:sw=4

@@ -45,6 +45,7 @@ public:
     void lock();
     const char * io_type() const;
     void remove();
+    void unlink();
 };
 
 //! \}

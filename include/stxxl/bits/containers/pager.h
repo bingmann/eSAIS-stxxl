@@ -53,6 +53,7 @@ public:
 
     void hit(size_type ipage)
     {
+        STXXL_UNUSED(ipage);
         assert(ipage < size());
     }
 
