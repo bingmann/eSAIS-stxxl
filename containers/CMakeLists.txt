@@ -7,6 +7,7 @@ stxxl_test(monotonic_pq)
 stxxl_test(pq_benchmark)
 stxxl_test(stack_benchmark)
 stxxl_test(test_deque)
+stxxl_test(test_deque2)
 stxxl_test(test_ext_merger)
 stxxl_test(test_ext_merger2)
 stxxl_test(test_iterators)
@@ -27,6 +28,8 @@ add_define(test_ext_merger "STXXL_VERBOSE_LEVEL=1")
 add_define(test_ext_merger2 "STXXL_VERBOSE_LEVEL=1")
 add_define(bench_pqueue "STXXL_VERBOSE_LEVEL=0")
 add_define(benchmark_naive_matrix "STXXL_VERBOSE_LEVEL=0")
+
+add_define(test_deque2 "STXXL_VERBOSE_LEVEL=2")
 
 # TESTS_MAP
 stxxl_test(test_map)
