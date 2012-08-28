@@ -99,6 +99,14 @@ public:
     {
     }
 
+    // Constructor variant with differently sizes runs_creator and runs_merger
+    sorter(const cmp_type& cmp, unsigned_type creator_memory_to_use, unsigned_type merger_memory_to_use)
+        : m_state(STATE_INPUT), 
+          m_runs_creator(cmp, creator_memory_to_use),
+          m_runs_merger(cmp, merger_memory_to_use)
+    {
+    }
+
     //! Remove all items and return to input state.
     void clear()
     {
