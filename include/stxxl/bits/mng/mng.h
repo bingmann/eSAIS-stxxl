@@ -150,6 +150,11 @@ public:
 
     ~block_manager();
 
+    unsigned long long current_allocated() const
+    {
+        return m_totalalloc;
+    }
+
     unsigned long long max_allocated() const
     {
         return m_maxalloc;

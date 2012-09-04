@@ -92,6 +92,7 @@ protected:
 
 public:
 
+    //! Constructor allocation memory_to_use bytes in ram for sorted runs.
     sorter(const cmp_type& cmp, unsigned_type memory_to_use)
         : m_state(STATE_INPUT), 
           m_runs_creator(cmp, memory_to_use),
@@ -124,12 +125,24 @@ public:
         m_runs_creator.push(val);
     }
     
-    //! Finish push state and deallocate buffer.
+    //! Finish push input state and deallocate input buffer.
     void finish()
     {
         if (m_state == STATE_OUTPUT)
         {
             m_runs_merger.deallocate();
+        }
+
+        m_runs_creator.deallocate();
+    }
+
+    //! Deallocate buffers and clear result.
+    void finish_clear()
+    {
+        if (m_state == STATE_OUTPUT)
+        {
+            m_runs_merger.deallocate();
+            m_runs_creator.result()->clear();
         }
 
         m_runs_creator.deallocate();
@@ -157,7 +170,14 @@ public:
         m_state = STATE_OUTPUT;
     }
 
-    //! Switch to output state.
+    //! Switch to output state, rewind() in case the output was already sorted.
+    void sort(unsigned_type merger_memory_to_use)
+    {
+        m_runs_merger.set_memory_to_use(merger_memory_to_use);
+        sort();
+    }
+
+    //! Switch to output state, rewind() in case the output was already sorted.
     void sort_reuse()
     {
         assert( m_state == STATE_INPUT );

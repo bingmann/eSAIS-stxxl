@@ -941,8 +941,8 @@ namespace stream
         value_cmp m_cmp;
 
         /// memory size in bytes to use
-        const unsigned_type m_memory_to_use;
-
+        unsigned_type   m_memory_to_use;
+        
         /// smart pointer to sorted_runs object
         sorted_runs_type m_sruns;
 
@@ -1095,6 +1095,12 @@ namespace stream
             sort_helper::verify_sentinel_strict_weak_ordering(m_cmp);
         }
 
+        //! \brief Set memory amount to use for the merger in bytes
+        void set_memory_to_use(unsigned_type memory_to_use)
+        {
+            m_memory_to_use = memory_to_use;
+        }
+
         //! \brief Initialize the runs merger object with a new round of sorted_runs
         void initialize(const sorted_runs_type & sruns)
         {
@@ -1233,6 +1239,7 @@ namespace stream
         void deallocate()
         {
             deallocate_prefetcher();
+            m_sruns = NULL;     // release reference on result object
         }
 
     public:
