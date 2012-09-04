@@ -26,7 +26,7 @@
 #include <stxxl/bits/common/tmeta.h>
 #include <stxxl/bits/containers/pager.h>
 #include <stxxl/bits/common/is_sorted.h>
-
+#include <stxxl/bits/mng/buf_ostream.h>
 
 __STXXL_BEGIN_NAMESPACE
 
@@ -1670,11 +1670,132 @@ struct VECTOR_GENERATOR
     typedef vector<Tp_, PgSz_, PagerType, BlkSize_, AllocStr_> result;
 };
 
+////////////////////////////////////////////////////////////////////////////
+
+//! \brief Buffered sequential writer to a vector using overlapped I/O
+
+//! This buffered writer can be used to write a large sequential region of a
+//! vector using overlapped i/o. The object is created from an iterator range,
+//! which can then be written to using operator<<.
+
+template <typename VectorType>
+class vector_bufwriter
+{
+public:
+
+    typedef typename VectorType::value_type value_type;
+
+    typedef VectorType vector_type;
+    typedef typename VectorType::iterator vector_iterator_type;
+    typedef typename VectorType::const_iterator vector_const_iterator_type;
+
+private:
+
+    typedef buf_ostream<typename vector_iterator_type::block_type, typename vector_iterator_type::bids_container_iterator> buf_ostream_type;
+
+    vector_iterator_type        m_begin, m_end;
+    vector_const_iterator_type  m_prev;
+    buf_ostream_type*           m_bufout;
+
+    unsigned_type               m_nbuffers;
+
+public:
+    //! \brief Create overlapped writer for begin,end range.
+    vector_bufwriter(vector_iterator_type begin, vector_iterator_type end,
+                     unsigned_type nbuffers = 0)
+        : m_begin(begin),
+          m_end(end),
+          m_bufout(NULL)
+    {
+        if (nbuffers == 0)
+            m_nbuffers = 2 * config::get_instance()->disks_number();
+    }
+
+    //! \brief Finish writing and flush output back to vector.
+    ~vector_bufwriter()
+    {
+        finish();
+    }
+
+    //! \brief Write value to the current position and advance the internal iterator.
+    vector_bufwriter& operator<< (const value_type& v)
+    {
+        if (!m_bufout)
+        {
+            if (m_begin.block_offset())
+            {
+                // output position is not at the start of the block
+                assert(m_begin != m_end);
+                *m_begin = v;
+                ++m_begin;
+
+                return *this;
+            }
+            else
+            {
+                // output position is start of block: create buffered writer
+
+                m_begin.flush(); // flush container
+
+                // create buffered write stream for blocks
+                m_bufout = new buf_ostream_type(m_begin.bid(), m_nbuffers);
+                m_prev = m_begin;
+
+                // drop through to normal output into buffered writer
+            }
+        }
+
+        assert(m_begin != m_end);
+
+        m_bufout->operator*() = v;
+        m_bufout->operator++();
+        ++m_begin;
+
+        // if the pointer has finished a block, then we inform the vector that
+        // this block has been updated.
+        if (m_begin.block_offset() == 0) {
+            if (m_prev != m_begin) {
+                m_prev.block_externally_updated();
+                m_prev = m_begin;
+            }
+        }
+
+        return *this;
+    }
+
+    //! \brief Finish writing and flush output back to vector.
+    void finish()
+    {
+        if (m_bufout)
+        {
+            // must finish the block started in the buffered writer: fill it
+            // with the data in the vector
+            vector_const_iterator_type const_out = m_begin;
+
+            while (const_out.block_offset())
+            {
+                m_bufout->operator*() = *const_out;
+                m_bufout->operator++();
+                ++const_out;
+            }
+
+            // inform the vector that the block has been updated.
+            if (m_prev != m_begin) {
+                m_prev.block_externally_updated();
+                m_prev = m_begin;
+            }
+
+            delete m_bufout;
+            m_bufout = NULL;
+        }
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////
 
 //! \}
 
 __STXXL_END_NAMESPACE
-
 
 namespace std
 {
