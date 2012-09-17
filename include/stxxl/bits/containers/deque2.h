@@ -386,7 +386,7 @@ public:
     {
     public:
 
-        typedef deque2::value_type value_type;
+        typedef typename deque2::value_type value_type;
 
         typedef typename bid_deque_type::const_iterator bid_iter_type;
 
@@ -507,7 +507,7 @@ public:
     {
     public:
 
-        typedef deque2::value_type value_type;
+        typedef typename deque2::value_type value_type;
 
         typedef typename bid_deque_type::const_reverse_iterator bid_iter_type;
 
