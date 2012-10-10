@@ -41,7 +41,7 @@ namespace priority_queue_local
         InputIterator & source1,
         OutputIterator target,
         unsigned_type length,
-        Cmp_ cmp)
+        Cmp_& cmp)
     {
         OutputIterator done = target + length;
 
@@ -74,7 +74,7 @@ namespace priority_queue_local
         InputIterator & source2,
         OutputIterator target,
         unsigned_type length,
-        Cmp_ cmp)
+        Cmp_& cmp)
     {
         OutputIterator done = target + length;
 
@@ -141,7 +141,7 @@ namespace priority_queue_local
         InputIterator & source1,
         InputIterator & source2,
         InputIterator & source3,
-        OutputIterator target, unsigned_type length, Cmp_ cmp)
+        OutputIterator target, unsigned_type length, Cmp_& cmp)
     {
         OutputIterator done = target + length;
 
