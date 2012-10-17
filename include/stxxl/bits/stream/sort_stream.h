@@ -1329,45 +1329,24 @@ namespace stream
         const unsigned_type merge_factor = optimal_merge_factor(nruns, max_arity);
         assert(merge_factor > 1);
         assert(merge_factor <= max_arity);
+
         while (nruns > max_arity)
         {
             unsigned_type new_nruns = div_ceil(nruns, merge_factor);
             STXXL_MSG("Starting new merge phase: nruns: " << nruns <<
-                          " opt_merge_factor: " << merge_factor << " max_arity: " << max_arity << " new_nruns: " << new_nruns);
+                      " opt_merge_factor: " << merge_factor << " max_arity: " << max_arity << " new_nruns: " << new_nruns);
 
-            // construct new sorted_runs object which will be swapped into m_sruns
+            // construct new sorted_runs data object which will be swapped into m_sruns
+
             sorted_runs_data_type new_runs;
             new_runs.runs.resize(new_nruns);
             new_runs.runs_sizes.resize(new_nruns);
             new_runs.elements = m_sruns->elements;
 
+            // merge all runs from m_runs into news_runs
+
             unsigned_type runs_left = nruns;
             unsigned_type cur_out_run = 0;
-            unsigned_type elements_in_new_run = 0;
-
-            while (runs_left > 0)
-            {
-                int_type runs2merge = STXXL_MIN(runs_left, merge_factor);
-                elements_in_new_run = 0;
-                for (unsigned_type i = nruns - runs_left; i < (nruns - runs_left + runs2merge); ++i)
-                {
-                    elements_in_new_run += m_sruns->runs_sizes[i];
-                }
-                const unsigned_type blocks_in_new_run1 = div_ceil(elements_in_new_run, block_type::size);
-
-                new_runs.runs_sizes[cur_out_run] = elements_in_new_run;
-                // allocate run
-                new_runs.runs[cur_out_run++].resize(blocks_in_new_run1);
-                runs_left -= runs2merge;
-            }
-
-            // allocate blocks for the new runs
-            for (unsigned_type i = 0; i < new_runs.runs.size(); ++i)
-                bm->new_blocks(alloc_strategy(), make_bid_iterator(new_runs.runs[i].begin()), make_bid_iterator(new_runs.runs[i].end()));
-
-            // merge all
-            runs_left = nruns;
-            cur_out_run = 0;
             size_type elements_left = m_sruns->elements;
 
             while (runs_left > 0)
@@ -1375,32 +1354,43 @@ namespace stream
                 unsigned_type runs2merge = STXXL_MIN(runs_left, merge_factor);
                 STXXL_MSG("Merging " << runs2merge << " runs");
 
-                // construct temporary sorted_runs object as input into recursive merger.
-                // However this object does not _own_ the blocks, it must therefore not be reference
-                // counted and the vectors must be clear()ed before it is destroyed.
-                sorted_runs_data_type cur_runs;
-                cur_runs.runs.resize(runs2merge);
-                cur_runs.runs_sizes.resize(runs2merge);
-                cur_runs.inc_ref();     // hold dangling reference
-
-                std::copy(m_sruns->runs.begin() + nruns - runs_left,
-                          m_sruns->runs.begin() + nruns - runs_left + runs2merge,
-                          cur_runs.runs.begin());
-                std::copy(m_sruns->runs_sizes.begin() + nruns - runs_left,
-                          m_sruns->runs_sizes.begin() + nruns - runs_left + runs2merge,
-                          cur_runs.runs_sizes.begin());
-
-                runs_left -= runs2merge;
-                /*
-                   cur_runs.elements = (runs_left)?
-                   (new_runs.runs[cur_out_run].size()*block_type::size):
-                   (elements_left);
-                 */
-                cur_runs.elements = new_runs.runs_sizes[cur_out_run];
-                elements_left -= cur_runs.elements;
-
-                if (runs2merge > 1)
+                if (runs2merge > 1) // non-trivial merge
                 {
+                    // count the number of elements in the run
+                    unsigned_type elements_in_new_run = 0;
+                    for (unsigned_type i = nruns - runs_left; i < (nruns - runs_left + runs2merge); ++i)
+                    {
+                        elements_in_new_run += m_sruns->runs_sizes[i];
+                    }
+                    new_runs.runs_sizes[cur_out_run] = elements_in_new_run;
+
+                    // calculate blocks in run
+                    const unsigned_type blocks_in_new_run = div_ceil(elements_in_new_run, block_type::size);
+
+                    // allocate blocks for the new runs
+                    new_runs.runs[cur_out_run].resize(blocks_in_new_run);
+                    bm->new_blocks(alloc_strategy(), make_bid_iterator(new_runs.runs[cur_out_run].begin()), make_bid_iterator(new_runs.runs[cur_out_run].end()));
+
+                    // Construct temporary sorted_runs object as input into recursive merger.
+                    // This sorted_runs is copied a subset of the over-large set of runs, which
+                    // will be deallocated from external memory once the runs are merged.
+                    sorted_runs_data_type cur_runs;
+                    cur_runs.runs.resize(runs2merge);
+                    cur_runs.runs_sizes.resize(runs2merge);
+                    cur_runs.inc_ref();     // hold dangling reference
+
+                    std::copy(m_sruns->runs.begin() + nruns - runs_left,
+                              m_sruns->runs.begin() + nruns - runs_left + runs2merge,
+                              cur_runs.runs.begin());
+                    std::copy(m_sruns->runs_sizes.begin() + nruns - runs_left,
+                              m_sruns->runs_sizes.begin() + nruns - runs_left + runs2merge,
+                              cur_runs.runs_sizes.begin());
+
+                    cur_runs.elements = elements_in_new_run;
+                    elements_left -= elements_in_new_run;
+
+                    // construct recursive merger
+
                     basic_runs_merger<RunsType_, CompareType_, AllocStr_> merger(m_cmp, m_memory_to_use - memory_for_write_buffers);
                     merger.initialize(&cur_runs);
 
@@ -1418,43 +1408,42 @@ namespace stream
                             if ((cnt % block_type::size) == 0) // have to write the trigger value
                                 new_runs.runs[cur_out_run][cnt / size_type(block_type::size)].value = *merger;
 
-                            ++cnt;
-                            ++out;
-                            ++merger;
+                            ++cnt, ++out, ++merger;
                         }
                         assert(merger.empty());
 
                         while (cnt % block_type::size)
                         {
                             *out = m_cmp.max_value();
-                            ++out;
-                            ++cnt;
+                            ++out, ++cnt;
                         }
                     }
+
+                    // deallocate merged runs by destroying cur_runs
                 }
-                else
+                else // runs2merge = 1 -> no merging needed
                 {
-                    bm->delete_blocks(
-                        make_bid_iterator(new_runs.runs.back().begin()),
-                        make_bid_iterator(new_runs.runs.back().end()));
+                    assert( cur_out_run+1 == new_runs.runs.size() );
 
-                    assert(cur_runs.runs.size() == 1);
+                    elements_left -= m_sruns->runs_sizes.back();
 
-                    std::copy(cur_runs.runs.front().begin(),
-                              cur_runs.runs.front().end(),
-                              new_runs.runs.back().begin());
-                    new_runs.runs_sizes.back() = cur_runs.runs_sizes.front();
+                    // copy block identifiers into new sorted_runs object
+                    new_runs.runs.back() = m_sruns->runs.back();
+                    new_runs.runs_sizes.back() = m_sruns->runs_sizes.back();
                 }
 
-                cur_runs.runs.clear();  // clear bid vector to skip deallocation of blocks in destructor
-
+                runs_left -= runs2merge;
                 ++cur_out_run;
             }
+
             assert(elements_left == 0);
+
+            m_sruns->runs.clear();      // clear bid vector of m_sruns to skip deallocation of blocks in destructor
 
             std::swap(nruns, new_nruns);
             m_sruns->swap(new_runs);           // replaces data in referenced counted object m_sruns
-        }
+
+        } // end while (nruns > max_arity)
     }
 
 
