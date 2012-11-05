@@ -442,16 +442,19 @@ public:
 
             if (UNLIKELY(m_current_element == m_current_block->begin() + (block_type::size - 1)))
             {
-                // if there is only one block, it implies ...
-                if (m_current_block == m_deque.m_back_block)
+                // next item position is beyond end of current block, find next block
+                --m_size;
+
+                if (m_size == 0)
                 {
-                    STXXL_VERBOSE1("deque2::stream::operator++ Error: incrementing past the last block");
-                    assert(0);
+                    STXXL_VERBOSE1("deque2::stream::operator++ last block finished clean at block end");
+                    assert( m_next_bid == m_deque.m_bids.end() );
+                    assert( m_current_block == m_deque.m_back_block );
+                    // nothing to give back to deque pool
+                    m_current_element = NULL;
                     return *this;
                 }
-
-                --m_size;
-                if (m_size <= block_type::size)
+                else if (m_size <= block_type::size)    // still items left in last partial block
                 {
                     STXXL_VERBOSE1("deque2::stream::operator++ reached last block");
                     assert( m_next_bid == m_deque.m_bids.end() );
@@ -489,8 +492,8 @@ public:
             }
             else
             {
-                ++m_current_element;
                 --m_size;
+                ++m_current_element;
             }
             return *this;
         }
@@ -563,17 +566,19 @@ public:
 
             if (UNLIKELY(m_current_element == m_current_block->begin()))
             {
+                // next item position is beyond begin of current block, find next block
                 --m_size;
 
-                // if this is already the front block, then there is nowhere to go
-                if (m_current_block == m_deque.m_front_block)
+                if (m_size == 0)
                 {
-                    STXXL_VERBOSE1("deque2::reverse_stream::operator++ reached first block");
-                    assert( m_size == 0 );
+                    STXXL_VERBOSE1("deque2::reverse_stream::operator++ last block finished clean at block begin");
+                    assert( m_next_bid == m_deque.m_bids.rend() );
+                    assert( m_current_block == m_deque.m_front_block );
+                    // nothing to give back to deque pool
+                    m_current_element = NULL;
                     return *this;
                 }
-
-                if (m_size <= block_type::size)
+                else if (m_size <= block_type::size)
                 {
                     STXXL_VERBOSE1("deque2::reverse_stream::operator++ reached first block");
                     assert( m_next_bid == m_deque.m_bids.rend() );
@@ -611,8 +616,8 @@ public:
             }
             else
             {
-                --m_current_element;
                 --m_size;
+                --m_current_element;
             }
             return *this;
         }
