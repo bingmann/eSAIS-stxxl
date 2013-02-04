@@ -29,6 +29,7 @@ __STXXL_BEGIN_NAMESPACE
 template <typename BlkTp_, typename BIDIteratorTp_>
 class buf_ostream
 {
+public:
     typedef BlkTp_ block_type;
     typedef BIDIteratorTp_ bid_iterator_type;
 
@@ -83,7 +84,7 @@ public:
 
     //! \brief Moves to the next record in the stream
     //! \return reference to itself after the advance
-    _Self & operator ++ ()
+    _Self& operator ++ ()
     {
         ++current_elem;
         if (UNLIKELY(current_elem >= block_type::size))
@@ -94,6 +95,15 @@ public:
         return (*this);
     }
 
+    //! \brief fill current block with padding and flush
+    _Self& fill(const_reference record)
+    {
+        while (current_elem != 0)
+        {
+            operator<< (record);
+        }
+        return *this;
+    }
 
     //! \brief Deallocates internal objects
     virtual ~buf_ostream()

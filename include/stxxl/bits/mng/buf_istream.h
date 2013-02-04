@@ -35,9 +35,11 @@ __STXXL_BEGIN_NAMESPACE
 template <typename BlkTp_, typename BIDIteratorTp_>
 class buf_istream
 {
+public:
     typedef BlkTp_ block_type;
     typedef BIDIteratorTp_ bid_iterator_type;
 
+private:
     buf_istream() { }
 
 protected:
