@@ -21,38 +21,39 @@ int main(int argc, char * argv[])
         return -1;
     }
 
-    stxxl::random_number32 rand;
+    srand(2397423);
     stxxl::deque2<int> XXLDeque;
     std::deque<int> STDDeque;
 
     stxxl::int64 ops = stxxl::atoint64(argv[1]);
     for (stxxl::int64 i = 0; i < ops; ++i)
     {
-        unsigned curOP = rand() % 3;
+        unsigned curOP = rand() % 5;
         unsigned value = rand();
         switch (curOP)
         {
         case 0:
         case 1:
+            XXLDeque.push_front(value);
+            STDDeque.push_front(value);
+            break;
+        case 2:
             XXLDeque.push_back(value);
             STDDeque.push_back(value);
             break;
-        case 2:
+        case 3:
             if (!XXLDeque.empty())
             {
                 XXLDeque.pop_front();
                 STDDeque.pop_front();
             }
             break;
-/*
-        case 3:
+        case 4:
             if (!XXLDeque.empty())
             {
                 XXLDeque.pop_back();
                 STDDeque.pop_back();
             }
-            break;
-*/
             break;
         }
 
@@ -65,7 +66,7 @@ int main(int argc, char * argv[])
             assert(XXLDeque.front() == STDDeque.front());
         }
 
-        if (!(i % 1000000))
+        if (!(i % 100000))
         {
             std::cout << "Complete check of deque (size " << XXLDeque.size() << ")\n";
             stxxl::deque2<int>::stream stream = XXLDeque.get_stream();
@@ -81,7 +82,7 @@ int main(int argc, char * argv[])
             assert( b == STDDeque.end() );
         }
 
-        if (!(i % 1000000))
+        if (!(i % 100000))
         {
             std::cout << "Complete check of reverse deque (size " << XXLDeque.size() << ")\n";
             stxxl::deque2<int>::reverse_stream stream = XXLDeque.get_reverse_stream();

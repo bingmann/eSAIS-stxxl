@@ -210,21 +210,91 @@ public:
         return m_blocks2prefetch;
     }
 
+    //! \brief Adds an element to the front of the deque
+    void push_front(const value_type & val)
+    {
+        if (UNLIKELY(m_front_element == m_front_block->begin()))
+        {
+            if (m_size == 0)
+            {
+                STXXL_VERBOSE1("deque2::push_front Case 0");
+                assert(m_front_block == m_back_block);
+                m_front_element = m_back_element = m_front_block->end()-1;
+                *m_front_element = val;
+                ++m_size;
+                return;
+            }
+            // front block is completely filled
+            else if (m_front_block == m_back_block)
+            {
+                // can not write the front block because it
+                // is the same as the back block, must keep it memory
+                STXXL_VERBOSE1("deque2::push_front Case 1");
+            }
+            else if (size() < 2 * block_type::size)
+            {
+                STXXL_VERBOSE1("deque2::push_front Case 1.5");
+                // only two blocks with a gap at the end, move elements within memory
+                assert(m_bids.empty());
+                size_t gap = m_back_block->end() - (m_back_element+1);
+                assert(gap > 0);
+                std::copy_backward(m_back_block->begin(), m_back_element+1, m_back_block->end());
+                std::copy_backward(m_front_block->end() - gap, m_front_block->end(), m_back_block->begin() + gap);
+                std::copy_backward(m_front_block->begin(), m_front_block->end() - gap, m_front_block->end());
+                m_front_element += gap;
+                m_back_element += gap;
+
+                --m_front_element;
+                *m_front_element = val;
+                ++m_size;
+                return;
+            }
+            else
+            {
+                STXXL_VERBOSE1("deque2::push_front Case 2");
+                // write the front block
+                // need to allocate new block
+                bid_type newbid;
+
+                m_bm->new_block(m_alloc_strategy, newbid, m_alloc_count++);
+
+                STXXL_VERBOSE_DEQUE2("deque2[" << this << "]: push_front block " << m_front_block << " @ " << FMT_BID(newbid));
+                m_bids.push_front(newbid);
+                m_pool->write(m_front_block, newbid);
+                if (m_bids.size() <= m_blocks2prefetch) {
+                    STXXL_VERBOSE1("deque2::push Case Hints");
+                    m_pool->hint(newbid);
+                }
+            }
+
+            m_front_block = m_pool->steal();
+            m_front_element = m_front_block->end()-1;
+            *m_front_element = val;
+            ++m_size;
+        }
+        else // not at beginning of a block
+        {
+            --m_front_element;
+            *m_front_element = val;
+            ++m_size;
+        }
+    }
+
     //! \brief Adds an element to the end of the deque
     void push_back(const value_type & val)
     {
         if (UNLIKELY(m_back_element == m_back_block->begin() + (block_type::size - 1)))
         {
-            // back block is filled
+            // back block is completely  filled
             if (m_front_block == m_back_block)
             {
                 // can not write the back block because it
                 // is the same as the front block, must keep it memory
-                STXXL_VERBOSE1("deque2::push Case 1");
+                STXXL_VERBOSE1("deque2::push_back Case 1");
             }
             else if (size() < 2 * block_type::size)
             {
-                STXXL_VERBOSE1("deque2::push Case 1.5");
+                STXXL_VERBOSE1("deque2::push_back Case 1.5");
                 // only two blocks with a gap in the beginning, move elements within memory
                 assert(m_bids.empty());
                 size_t gap = m_front_element - m_front_block->begin();
@@ -242,18 +312,18 @@ public:
             }
             else
             {
-                STXXL_VERBOSE1("deque2::push Case 2");
+                STXXL_VERBOSE1("deque2::push_back Case 2");
                 // write the back block
                 // need to allocate new block
                 bid_type newbid;
 
                 m_bm->new_block(m_alloc_strategy, newbid, m_alloc_count++);
 
-                STXXL_VERBOSE_DEQUE2("deque2[" << this << "]: push block " << m_back_block << " @ " << FMT_BID(newbid));
+                STXXL_VERBOSE_DEQUE2("deque2[" << this << "]: push_back block " << m_back_block << " @ " << FMT_BID(newbid));
                 m_bids.push_back(newbid);
                 m_pool->write(m_back_block, newbid);
                 if (m_bids.size() <= m_blocks2prefetch) {
-                    STXXL_VERBOSE1("deque2::push Case Hints");
+                    STXXL_VERBOSE1("deque2::push_back Case Hints");
                     m_pool->hint(newbid);
                 }
             }
@@ -262,11 +332,13 @@ public:
             m_back_element = m_back_block->begin();
             *m_back_element = val;
             ++m_size;
-            return;
         }
-        ++m_back_element;
-        *m_back_element = val;
-        ++m_size;
+        else // not at end of a block
+        {
+            ++m_back_element;
+            *m_back_element = val;
+            ++m_size;
+        }
     }
 
     //! \brief Removes element from the front of the deque
@@ -279,7 +351,7 @@ public:
             // if there is only one block, it implies ...
             if (m_back_block == m_front_block)
             {
-                STXXL_VERBOSE1("deque2::pop Case 3");
+                STXXL_VERBOSE1("deque2::pop_front Case 1");
                 assert(size() == 1);
                 assert(m_back_element == m_front_element);
                 assert(m_bids.empty());
@@ -293,7 +365,7 @@ public:
             --m_size;
             if (m_size <= block_type::size)
             {
-                STXXL_VERBOSE1("deque2::pop Case 4");
+                STXXL_VERBOSE1("deque2::pop_front Case 2");
                 assert(m_bids.empty());
                 // the m_back_block is the next block
                 m_pool->add(m_front_block);
@@ -301,16 +373,16 @@ public:
                 m_front_element = m_back_block->begin();
                 return;
             }
-            STXXL_VERBOSE1("deque2::pop Case 5");
+            STXXL_VERBOSE1("deque2::pop_front Case 3");
 
             assert(!m_bids.empty());
             request_ptr req = m_pool->read(m_front_block, m_bids.front());
-            STXXL_VERBOSE_DEQUE2("deque2[" << this << "]: pop block  " << m_front_block << " @ " << FMT_BID(m_bids.front()));
+            STXXL_VERBOSE_DEQUE2("deque2[" << this << "]: pop_front block  " << m_front_block << " @ " << FMT_BID(m_bids.front()));
 
             // give prefetching hints
             for (unsigned_type i = 0; i < m_blocks2prefetch && i < m_bids.size() - 1; ++i)
             {
-                STXXL_VERBOSE1("deque2::pop Case Hints");
+                STXXL_VERBOSE1("deque2::pop_front Case Hints");
                 m_pool->hint(m_bids[i + 1]);
             }
 
@@ -319,11 +391,71 @@ public:
 
             m_bm->delete_block(m_bids.front());
             m_bids.pop_front();
-            return;
         }
+        else
+        {
+            ++m_front_element;
+            --m_size;
+        }
+    }
 
-        ++m_front_element;
-        --m_size;
+    //! \brief Removes element from the back of the deque
+    void pop_back()
+    {
+        assert(!empty());
+
+        if (UNLIKELY(m_back_element == m_back_block->begin()))
+        {
+            // if there is only one block, it implies ...
+            if (m_back_block == m_front_block)
+            {
+                STXXL_VERBOSE1("deque2::pop_back Case 1");
+                assert(size() == 1);
+                assert(m_back_element == m_front_element);
+                assert(m_bids.empty());
+                // reset everything
+                m_back_element = m_back_block->begin() - 1;
+                m_front_element = m_back_block->begin();
+                m_size = 0;
+                return;
+            }
+
+            --m_size;
+            if (m_size <= block_type::size)
+            {
+                STXXL_VERBOSE1("deque2::pop_back Case 2");
+                assert(m_bids.empty());
+                // the m_front_block is the next block
+                m_pool->add(m_back_block);
+                m_back_block = m_front_block;
+                m_back_element = m_back_block->end() - 1;
+                return;
+            }
+
+            STXXL_VERBOSE1("deque2::pop_back Case 3");
+
+            assert(!m_bids.empty());
+            request_ptr req = m_pool->read(m_back_block, m_bids.back());
+            STXXL_VERBOSE_DEQUE2("deque2[" << this << "]: pop_back block  " << m_back_block << " @ " << FMT_BID(m_bids.back()));
+
+            // give prefetching hints
+            for (unsigned_type i = 1; i < m_blocks2prefetch && i < m_bids.size() - 1; ++i)
+            {
+                STXXL_VERBOSE1("deque2::pop_front Case Hints");
+                m_pool->hint(m_bids[m_bids.size()-1 - i]);
+            }
+
+            m_back_element = m_back_block->end() - 1;
+            req->wait();
+
+            m_bm->delete_block(m_bids.back());
+            m_bids.pop_back();
+        }
+        else
+        {
+            --m_back_element;
+            --m_size;
+        }
     }
 
     //! \brief Returns the size of the deque
